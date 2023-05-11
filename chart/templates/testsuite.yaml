@@ -1,0 +1,266 @@
+{{- if .Values.unittest.enabled }}
+# deploying a testing pod
+
+{{- if .Values.unittest.autorun }}
+# Job to run the tests automatically
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "adb.fullname" . }}-test
+  labels:
+    {{- include "adb.labels" . | nindent 4 }}
+    component: testsuite
+  namespace: {{ include "adb.namespace" . }}
+spec:
+  
+  # run test only once, either it succeed or fails
+  backoffLimit: 0
+
+  template:
+    metadata:
+      labels:
+        {{- include "adb.selectorLabels" . | nindent 8 }}
+        component: testsuite
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+
+    spec:
+      {{- if .Values.serviceAccount.create }}
+      serviceAccountName: {{ include "adb.serviceAccountName" . }}
+      {{- end }}
+
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+
+      initContainers:
+      - name: wait-for-frontend
+        image: "{{ .Values.image }}:{{ .Values.tag}}"
+        imagePullPolicy: {{ .Values.imagePullPolicy }}
+        env:
+        - name: ARTIFACTDB_ENV
+          value: {{ .Values.env }}
+        command: 
+        - "/bin/bash"
+        - "-c"
+        args:
+        - for i in {1..100}; do sleep 1; if curl -s {{ include "adb.fullname" . }}-frontend:8000; then exit 0; fi; done; exit 1
+      containers:
+      - name: test
+        image: "{{ .Values.image }}:{{ .Values.tag}}"
+        imagePullPolicy: {{ .Values.imagePullPolicy }}
+        env:
+        {{- include "adb.pythonpath" . | nindent 8 }}
+        - name: ARTIFACTDB_ENV
+          value: {{ .Values.env }}
+        - name: PLUGINS_PATH
+          value: "plugins"
+        # where do we run integration tests from. Must be a reachable URL from the cloud
+        - name: BASE_TEST_URL
+          value: {{ .Values.unittest.base_url }}
+
+        command: 
+        - "/bin/bash"
+        - "-c"
+        args:
+        {{- if .Values.unittest.verbose }}
+        - "pytest -s -vvvv tests"
+        {{- else }}
+        - "pytest tests"
+        {{- end }}
+
+        volumeMounts:
+        - mountPath: /app/run/secrets/s3
+          name: s3-credentials
+          readOnly: true
+        - mountPath: /app/run/secrets/pg
+          name: pg-credentials
+          readOnly: true
+        - mountPath: /app/run/secrets/pubkey
+          name: pubkey-pem
+          readOnly: true
+        - mountPath: /app/run/secrets/privkey
+          name: privkey-pem
+          readOnly: true
+        - name: config-and-patches
+          mountPath: /app/etc
+          readOnly: true
+        - mountPath: /app/run/secrets/keycloak
+          name: svc-credentials
+          readOnly: true
+        {{- if .Values.unittest.remove }}
+        - mountPath: /app/tests
+          name: empty-test-dir
+        {{- end }}
+
+
+      volumes:
+      - name: config-and-patches
+        projected:
+          sources:
+            - configMap:
+                name: {{ include "adb.fullname" . }}-config
+            - configMap:
+                name: {{ include "adb.fullname" . }}-patches
+      - name: s3-credentials
+        secret:
+          secretName: s3-credentials
+          optional: true
+      - name: pg-credentials
+        secret:
+          secretName: pg-credentials
+      - name: privkey-pem
+        secret:
+          secretName: privkey-pem
+      - name: pubkey-pem
+        secret:
+          secretName: pubkey-pem
+      - name: svc-credentials
+        secret:
+          secretName: svc-credentials
+          optional: true
+      {{- if .Values.unittest.remove }}
+      - name: empty-test-dir
+        emptyDir: {}
+      {{- end }}
+
+
+      restartPolicy: Never
+
+{{- else }}
+
+# Deployment is not running the tests
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "adb.fullname" . }}-test
+  labels:
+    {{- include "adb.labels" . | nindent 4 }}
+    component: testsuite
+  {{- with .Values.podAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  namespace: {{ include "adb.namespace" . }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "adb.selectorLabels" . | nindent 6 }}
+      component: testsuite
+  template:
+    metadata:
+      labels:
+        {{- include "adb.selectorLabels" . | nindent 8 }}
+        component: testsuite
+    spec:
+      {{- if .Values.serviceAccount.create }}
+      serviceAccountName: {{ include "adb.serviceAccountName" . }}
+      {{- end }}
+
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+      - name: test
+        {{- if .Values.tag }}
+        image: "{{ .Values.image }}:{{ .Values.tag}}"
+        {{- else }}
+        image: "{{ .Values.image }}"
+        {{- end }}
+        imagePullPolicy: {{ .Values.imagePullPolicy }}
+        env:
+        {{- include "adb.pythonpath" . | nindent 8 }}
+        - name: ARTIFACTDB_ENV
+          value: {{ .Values.env }}
+        - name: PLUGINS_PATH
+          value: "plugins"
+        # where do we run integration tests from. Must be a reachable URL from the cloud
+        - name: BASE_TEST_URL
+          value: {{ .Values.unittest.base_url }}
+
+        command: 
+        - "/bin/bash"
+        - "-c"
+        args:
+        - "tail -f /dev/null"
+
+        volumeMounts:
+        - mountPath: /app/run/secrets/s3
+          name: s3-credentials
+          readOnly: true
+        - mountPath: /app/run/secrets/pg
+          name: pg-credentials
+          readOnly: true
+        - mountPath: /app/run/secrets/pubkey
+          name: pubkey-pem
+          readOnly: true
+        - mountPath: /app/run/secrets/privkey
+          name: privkey-pem
+          readOnly: true
+        - name: config-and-patches
+          mountPath: /app/etc
+          readOnly: true
+        - mountPath: /app/run/secrets/keycloak
+          name: svc-credentials
+          readOnly: true
+        {{- include "local-code-volume-mounts" . | nindent 8 }}
+        {{- if .Values.unittest.remove }}
+        - mountPath: /app/tests
+          name: empty-test-dir
+        {{- end }}
+
+
+      volumes:
+      - name: config-and-patches
+        projected:
+          sources:
+            - configMap:
+                name: {{ include "adb.fullname" . }}-config
+            - configMap:
+                name: {{ include "adb.fullname" . }}-patches
+      - name: s3-credentials
+        secret:
+          secretName: s3-credentials
+          optional: true
+      - name: pg-credentials
+        secret:
+          secretName: pg-credentials
+      - name: privkey-pem
+        secret:
+          secretName: privkey-pem
+      - name: pubkey-pem
+        secret:
+          secretName: pubkey-pem
+      - name: svc-credentials
+        secret:
+          secretName: svc-credentials
+          optional: true
+      {{- include "local-code-volumes" .  | nindent 6}}
+      {{- if .Values.unittest.remove }}
+      - name: empty-test-dir
+        emptyDir: {}
+      {{- end }}
+
+
+{{- end }}
+{{- end }}
+

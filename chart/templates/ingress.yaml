@@ -1,0 +1,242 @@
+{{- if .Values.ingress.enabled -}}
+
+# Default to Traefik
+{{- if eq (include "ingress-type" .) "traefik" -}}
+{{- if not (.Capabilities.APIVersions.Has "traefik.containo.us/v1alpha1") -}}
+{{- end }}
+
+# MIDDLEWARES
+---
+apiVersion: traefik.containo.us/v1alpha1
+kind: Middleware
+metadata:
+  name: headers
+spec:
+  headers:
+    customRequestHeaders:
+      # TODO: -Version is used in es.switch, originally it would contain the instance ID, but
+      # we want to stay simple and use a generic name like "ADB".
+      X-ADB-Version: "{{ .Values.instance_version }}"
+      X-ADB-Prefix: {{ include "adb.api_prefix" . }}
+
+---
+apiVersion: traefik.containo.us/v1alpha1
+kind: Middleware
+metadata:
+  name: rewrite
+spec:
+  replacePathRegex:
+    regex: {{ include "adb.api_prefix" . }}/(.*)
+    replacement: /${1}
+---
+apiVersion: traefik.containo.us/v1alpha1
+kind: Middleware
+metadata:
+  name: addtrailingslash
+spec:
+  redirectRegex:
+    regex: {{ include "adb.api_prefix" . }}$
+    replacement: {{ include "adb.api_prefix" . }}/
+
+
+# ROUTES
+# Frontend
+---
+apiVersion: traefik.containo.us/v1alpha1
+kind: IngressRoute
+metadata:
+  name: {{ include "adb.fullname" . }}-frontend
+  labels:
+    {{- include "adb.labels" . | nindent 4 }}
+    # trigger/label, trafiek ignores the route if running as a CI pipeline
+    {{- if .Values.ci }} 
+    ci: "true"
+    {{- end }}
+spec:
+  entryPoints:
+  - web
+  routes:
+  - match: HostRegexp(`adb`,`{subdomain:[a-z0-9.-]*}{{ include "adb.api_hostname" . }}`) && PathPrefix(`{{ include "adb.api_prefix" . }}`)
+    kind: Rule
+    services:
+    - name: {{ include "adb.fullname" . }}-frontend
+      namespace: {{ include "adb.namespace" . }}
+      port: {{ .Values.frontend.service.port }}
+    middlewares:
+    - name: addtrailingslash
+    - name: headers
+    - name: rewrite
+
+# Flower (+ additional middlewares)
+---
+apiVersion: traefik.containo.us/v1alpha1
+kind: Middleware
+metadata:
+  name: redirecttodashboard
+spec:
+  redirectRegex:
+    regex: {{ include "adb.api_prefix" . }}/flower$
+    replacement: {{ include "adb.api_prefix" . }}/flower/dashboard
+
+---
+apiVersion: traefik.containo.us/v1alpha1
+kind: Middleware
+metadata:
+  name: flower-auth
+spec:
+  basicAuth:
+    secret: flower-credentials
+
+---
+apiVersion: traefik.containo.us/v1alpha1
+kind: IngressRoute
+metadata:
+  name: {{ include "adb.fullname" . }}-flower
+  labels:
+    {{- include "adb.labels" . | nindent 4 }}
+    # trigger/label, trafiek ignores the route if running as a CI pipeline
+    {{- if .Values.ci }}
+    ci: "true"
+    {{- end }}
+spec:
+  entryPoints:
+  - web
+  routes:
+  - match: HostRegexp(`adb`,`{subdomain:[a-z0-9.-]*}{{ include "adb.api_hostname" . }}`) && PathPrefix(`{{ include "adb.api_prefix" . }}/flower`)
+    kind: Rule
+    # before other routes, that point to API endpoints
+    priority: 1000
+    services:
+    - name: {{ include "adb.fullname" . }}-flower
+      namespace: {{ include "adb.namespace" . }}
+      port: {{ .Values.flower.service.port }}
+    middlewares:
+    - name: flower-auth
+    - name: redirecttodashboard
+
+
+---
+{{- if .Values.admin.enabled -}}
+apiVersion: traefik.containo.us/v1alpha1
+kind: IngressRoute
+metadata:
+  name: {{ include "adb.fullname" . }}-admin
+  labels:
+    {{- include "adb.labels" . | nindent 4 }}
+    # trigger/label, trafiek ignores the route if running as a CI pipeline
+    {{- if .Values.ci }}
+    ci: "true"
+    {{- end }}
+spec:
+  entryPoints:
+  - web
+  routes:
+  - match: HostRegexp(`adb`,`{subdomain:[a-z0-9.-]*}{{ include "adb.api_hostname" . }}`) && PathPrefix(`{{ include "adb.api_prefix" . }}/shell`)
+    kind: Rule
+    # before other routes, that point to API endpoints
+    priority: 1100
+    services:
+    - name: {{ include "adb.fullname" . }}-admin
+      namespace: {{ include "adb.namespace" . }}
+      port: {{ .Values.admin.service.port }}
+
+{{- end }}
+
+{{- end }}
+
+{{- if eq (include "ingress-type" .) "nginx" -}}
+{{- if not (.Capabilities.APIVersions.Has "networking.k8s.io/v1") -}}
+{{- fail "NGINX isn't installed, can't configure ingress routes" }}
+{{- end }}
+
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "adb.fullname" . }}
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      more_set_input_headers X-{{ .Values.instance_id }}-Version: {{ .Values.instance_version }};
+      more_set_input_headers X-ADB-Prefix: {{ include "adb.api_prefix" . }};
+spec:
+  rules:
+  - host: {{ include "adb.api_hostname" . }}
+    http:
+      paths:
+      - path: {{ include "adb.api_prefix" . }}
+        pathType: Prefix
+        backend:
+          service:
+            name: {{ include "adb.fullname" . }}-frontend
+            port:
+              number: 8000
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "adb.fullname" . }}-flower-dashboard
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+    nginx.ingress.kubernetes.io/rewrite-target: "/flower/dashboard"
+    #nginx.ingress.kubernetes.io/auth-type: basic
+    #nginx.ingress.kubernetes.io/auth-secret: flower-credentials
+spec:
+  rules:
+  - host: {{ include "adb.api_hostname" . }}
+    http:
+      paths:
+      - path: {{ include "adb.api_prefix" . }}/flower$
+        pathType: Prefix
+        backend:
+          service:
+            name: {{ include "adb.fullname" . }}-flower
+            port:
+              number: 8888
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "adb.fullname" . }}-flower
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+    #nginx.ingress.kubernetes.io/auth-type: basic
+    #nginx.ingress.kubernetes.io/auth-secret: flower-credentials
+spec:
+  rules:
+  - host: {{ include "adb.api_hostname" . }}
+    http:
+      paths:
+      - path: {{ include "adb.api_prefix" . }}/flower
+        pathType: Prefix
+        backend:
+          service:
+            name: {{ include "adb.fullname" . }}-flower
+            port:
+              number: 8888
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "adb.fullname" . }}-admin
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+spec:
+  rules:
+  - host: {{ include "adb.api_hostname" . }}
+    http:
+      paths:
+      - path: {{ include "adb.api_prefix" . }}/shell
+        pathType: Prefix
+        backend:
+          service:
+            name: {{ include "adb.fullname" . }}-admin
+            port:
+              number: 3000
+
+{{- end }}
+
+{{- end }}

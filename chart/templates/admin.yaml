@@ -1,0 +1,180 @@
+{{- if .Values.admin.enabled }}
+# deploying a admin pod for shell via wetty
+# this is very much similar to the testsuite pod
+# but has initContainer to copy the wetty code into the
+# api docker filesystem (mixing js + python env)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "adb.fullname" . }}-admin
+  {{- with .Values.podAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  labels:
+    {{- include "adb.labels" . | nindent 4 }}
+    component: admin
+  namespace: {{ include "adb.namespace" . }}
+spec:
+  replicas: {{ .Values.admin.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "adb.selectorLabels" . | nindent 6 }}
+      component: admin
+  template:
+    metadata:
+      labels:
+        {{- include "adb.selectorLabels" . | nindent 8 }}
+        component: admin
+    spec:
+
+      {{- if .Values.serviceAccount.create }}
+      serviceAccountName: {{ include "adb.serviceAccountName" . }}
+      {{- end }}
+
+      initContainers:
+      - name: copy-wetty
+        image: wettyoss/wetty
+        volumeMounts:
+        - mountPath: /wetty
+          name: shared-wetty
+        command:
+        - "/bin/ash"
+        - "-c"
+        args:
+        - >
+          cp `which node` /wetty/ && for lib in `ldd \`which node\` | sed "s#.* \(/.*\) .*#\\1#g" | grep ^\/ | sort -u`; do cp $lib /wetty; done
+          && cp -rp /usr/src/app/* /wetty/
+
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+      - name: wetty
+        {{- if .Values.tag }}
+        image: "{{ .Values.image }}:{{ .Values.tag}}"
+        {{- else }}
+        image: "{{ .Values.image }}"
+        {{- end }}
+        env:
+        {{- include "adb.pythonpath" . | nindent 8 }}
+        - name: ARTIFACTDB_ENV
+          value: {{ .Values.env }}
+        - name: PLUGINS_PATH
+          value: "plugins"
+
+        command: 
+        - "/bin/bash"
+        - "-c"
+        args:
+        #- "tail -f /dev/null"
+        # capture environment for "admin" users
+        # create users if any registered (file with login:encrypted, where encrypted
+        # is a sha256/512 encrypted password, obtained with `openssl passwd -6 YOURPASSWORD`
+        # then run wetty
+        - >
+          adduser admin -h /home/admin -s /bin/bash -D;
+          env | grep -e "ARTIFACTDB_ENV\|PYTHONPATH\|PLUGINS_PATH\|PATH\|SSL_CERT_FILE\|REQUESTS_CA_BUNDLE" > /home/admin/.env;
+          echo "export $(grep -v '^#' /home/admin/.env | xargs)" > /home/admin/.bashrc;
+          echo "cd /app" >> /home/admin/.bashrc;
+          ln -s /home/admin/.bashrc /home/admin/.bash_profile;
+          [ -f "/app/run/secrets/admins/users.txt" ] && [ -s "/app/run/secrets/admins/users.txt" ] &&
+          for userpass in `cat /app/run/secrets/admins/users.txt`; do IFS=: read -r user pass <<< $userpass; adduser $user -h /home/admin -s /bin/bash -D; done;
+          cat /app/run/secrets/admins/users.txt | chpasswd;
+          cd /wetty && LD_LIBRARY_PATH=. ./node . --port {{ .Values.admin.service.port }} --base {{ include "adb.api_prefix" . }}/shell --title "{{ .Values.instance_id }} admin. shell"
+
+        resources:
+          {{- toYaml .Values.resources | nindent 12 }}
+
+        volumeMounts:
+        - mountPath: /app/run/secrets/s3
+          name: s3-credentials
+          readOnly: true
+        - mountPath: /app/run/secrets/pg
+          name: pg-credentials
+          readOnly: true
+        - mountPath: /app/run/secrets/pubkey
+          name: pubkey-pem
+          readOnly: true
+        - mountPath: /app/run/secrets/privkey
+          name: privkey-pem
+          readOnly: true
+        - name: config-and-patches
+          mountPath: /app/etc
+          readOnly: true
+        - mountPath: /app/run/secrets/keycloak
+          name: svc-credentials
+          readOnly: true
+        - mountPath: /app/run/secrets/admins
+          name: admins-credentials
+          readOnly: true
+        - name: shared-wetty
+          mountPath: /wetty
+        {{- include "local-code-volume-mounts" . | nindent 8 }}
+
+      volumes:
+      - name: config-and-patches
+        projected:
+          sources:
+            - configMap:
+                name: {{ include "adb.fullname" . }}-config
+            - configMap:
+                name: {{ include "adb.fullname" . }}-patches
+      - name: s3-credentials
+        secret:
+          secretName: s3-credentials
+          optional: true
+      - name: pg-credentials
+        secret:
+          secretName: pg-credentials
+      - name: privkey-pem
+        secret:
+          secretName: privkey-pem
+      - name: pubkey-pem
+        secret:
+          secretName: pubkey-pem
+      - name: svc-credentials
+        secret:
+          secretName: svc-credentials
+          optional: true
+      - name: admins-credentials
+        secret:
+          secretName: admins-credentials
+          optional: true
+      - name: shared-wetty
+        emptyDir: {}
+      {{- include "local-code-volumes" .  | nindent 6}}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    {{- include "adb.labels" . | nindent 4 }}
+  name: {{ include "adb.fullname" . }}-admin
+  namespace: {{ include "adb.namespace" . }}
+spec:
+  ports:
+  {{- with .Values.admin.service }}
+  - port: {{ .port }}
+    {{- if contains "NodePort" .type }}
+    nodePort: {{ .nodePort }}
+    {{- end }}
+    protocol: TCP
+    targetPort: {{ .targetPort }}
+  type: {{ .type }}
+  {{- end }}
+  selector:
+    {{- include "adb.selectorLabels" . | nindent 4 }}
+    component: admin
+
+{{- end }}

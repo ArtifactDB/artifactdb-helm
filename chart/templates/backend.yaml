@@ -1,0 +1,271 @@
+# Backend deployment, Celery based, uses the same Docker image (different entry-point)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "adb.fullname" . }}-backend
+  {{- with .Values.podAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  labels:
+    {{- include "adb.labels" . | nindent 4 }}
+    component: backend
+    fullname: {{ include "adb.fullname" . }}
+  namespace: {{ include "adb.namespace" . }}
+spec:
+{{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.backend.replicaCount }}
+{{- end }}
+  selector:
+    matchLabels:
+      {{- include "adb.selectorLabels" . | nindent 6 }}
+      component: backend
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        {{- include "adb.selectorLabels" . | nindent 8 }}
+        component: backend
+    spec:
+
+      {{- if .Values.serviceAccount.create }}
+      serviceAccountName: {{ include "adb.serviceAccountName" . }}
+      {{- end }}
+
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+
+      containers:
+      - command:
+        - celery
+        - -A
+        - backend.main
+        - worker
+        - --loglevel=info
+        - -E
+        env:
+        {{- include "adb.pythonpath" . | nindent 8 }}
+        - name: ARTIFACTDB_ENV
+          value: {{ .Values.env }}
+        - name: PLUGINS_PATH
+          value: "plugins"
+        {{- if .Values.tag }}
+        image: "{{ .Values.image }}:{{ .Values.tag}}"
+        {{- else }}
+        image: "{{ .Values.image }}"
+        {{- end }}
+        imagePullPolicy: {{ .Values.imagePullPolicy }}
+
+        name: backend
+        ports:
+        - containerPort: {{ .Values.backend.service.port }}
+        {{- if .Values.backend.readinessProbe.enabled }}
+        readinessProbe:
+          exec:
+            command:
+              [
+                  "/usr/local/bin/python",
+                  "-c",
+                  "\"import os;from celery.task.control import inspect;from backend.app import app;exit(0 if os.environ['HOSTNAME'] in ','.join(inspect(app=app).stats().keys()) else 1)\""
+              ]
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        {{- end }}
+
+        resources:
+          {{- toYaml .Values.resources | nindent 12 }}
+
+        volumeMounts:
+        - mountPath: /app/run/secrets/s3
+          name: s3-credentials
+          readOnly: true
+        - mountPath: /app/run/secrets/pg
+          name: pg-credentials
+          readOnly: true
+        - name: config-and-patches
+          mountPath: /app/etc
+          readOnly: true
+        - mountPath: /app/run/secrets/keycloak
+          name: svc-credentials
+          readOnly: true
+        {{- include "local-code-volume-mounts" . | nindent 8 }}
+        {{- if .Values.unittest.remove }}
+        - mountPath: /app/tests
+          name: empty-test-dir
+        {{- end }}
+
+
+      volumes:
+      - name: s3-credentials
+        secret:
+          secretName: s3-credentials
+          optional: true
+      - name: pg-credentials
+        secret:
+          secretName: pg-credentials
+      - name: config-and-patches
+        projected:
+          sources:
+            - configMap:
+                name: {{ include "adb.fullname" . }}-config
+            - configMap:
+                name: {{ include "adb.fullname" . }}-patches
+      - name: svc-credentials
+        secret:
+          secretName: svc-credentials
+          optional: true
+      {{- include "local-code-volumes" .  | nindent 6}}
+      {{- if .Values.unittest.remove }}
+      - name: empty-test-dir
+        emptyDir: {}
+      {{- end }}
+
+
+---
+# Backend deployment, Celery based, uses the same Docker image (different entry-point)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "adb.fullname" . }}-beat
+  {{- with .Values.podAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  labels:
+    {{- include "adb.labels" . | nindent 4 }}
+    component: backend
+    fullname: {{ include "adb.fullname" . }}
+  namespace: {{ include "adb.namespace" . }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "adb.selectorLabels" . | nindent 6 }}
+      component: backend
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        {{- include "adb.selectorLabels" . | nindent 8 }}
+        component: backend
+    spec:
+
+      {{- if .Values.serviceAccount.create }}
+      serviceAccountName: {{ include "adb.serviceAccountName" . }}
+      {{- end }}
+
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+
+      containers:
+
+      - command:
+        - celery
+        - -A
+        - backend.main
+        - beat
+        - --loglevel=info
+        env:
+        {{- include "adb.pythonpath" . | nindent 8 }}
+        - name: ARTIFACTDB_ENV
+          value: {{ .Values.env }}
+        - name: PLUGINS_PATH
+          value: "plugins"
+        {{- if .Values.tag }}
+        image: "{{ .Values.image }}:{{ .Values.tag}}"
+        {{- else }}
+        image: "{{ .Values.image }}"
+        {{- end }}
+        imagePullPolicy: {{ .Values.imagePullPolicy }}
+
+        name: beat
+        ports:
+        - containerPort: {{ .Values.backend.service.port }}
+        {{- if .Values.backend.readinessProbe.enabled }}
+        readinessProbe:
+          exec:
+            command:
+              [
+                  "/usr/local/bin/python",
+                  "-c",
+                  "\"import os;from celery.task.control import inspect;from backend.app import app;exit(0 if os.environ['HOSTNAME'] in ','.join(inspect(app=app).stats().keys()) else 1)\""
+              ]
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        {{- end }}
+
+        resources:
+          {{- toYaml .Values.resources | nindent 12 }}
+
+        volumeMounts:
+        - mountPath: /app/run/secrets/s3
+          name: s3-credentials
+          readOnly: true
+        - mountPath: /app/run/secrets/pg
+          name: pg-credentials
+          readOnly: true
+        - name: config-and-patches
+          mountPath: /app/etc
+          readOnly: true
+        - mountPath: /app/run/secrets/keycloak
+          name: svc-credentials
+          readOnly: true
+        {{- include "local-code-volume-mounts" . | nindent 8 }}
+        {{- if .Values.unittest.remove }}
+        - mountPath: /app/tests
+          name: empty-test-dir
+        {{- end }}
+
+
+      volumes:
+      - name: s3-credentials
+        secret:
+          secretName: s3-credentials
+          optional: true
+      - name: pg-credentials
+        secret:
+          secretName: pg-credentials
+      - name: svc-credentials
+        secret:
+          secretName: svc-credentials
+          optional: true
+      - name: config-and-patches
+        projected:
+          sources:
+            - configMap:
+                name: {{ include "adb.fullname" . }}-config
+            - configMap:
+                name: {{ include "adb.fullname" . }}-patches
+      {{- include "local-code-volumes" .  | nindent 6}}
+      {{- if .Values.unittest.remove }}
+      - name: empty-test-dir
+        emptyDir: {}
+      {{- end }}

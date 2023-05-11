@@ -1,0 +1,29 @@
+{{- define "adblib.configmap" -}}
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  labels:
+    reloader: enabled
+    {{- include "adb.labels" . | nindent 4 }}
+  name: {{ include "adb.fullname" . }}-config
+  namespace: {{ include "adb.namespace" . }}
+data:
+  {{- $config_file := printf "files/config-%s.yml" .Values.global.env }}
+  {{ tpl (.Files.Glob $config_file).AsConfig . | indent 2 }}
+
+---
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  labels:
+    {{- include "adb.labels" . | nindent 4 }}
+  name: {{ include "adb.fullname" . }}-patches
+  namespace: {{ include "adb.namespace" . }}
+data: {}
+{{- end -}}
+
+
+{{- define "adblib.sealedsecrets" -}}
+{{- $sealed_file := printf "files/sealed-secrets-%s.yaml" .Values.global.env }}
+{{ tpl (.Files.Get $sealed_file) . }}
+{{- end -}}

@@ -1,0 +1,26 @@
+apiVersion: v2
+name: artifactdb
+description: Chart to support generic deployment of ArtifactDB APIs
+type: application
+version: 0.0.1
+appVersion: 0.0.1
+
+dependencies:
+- name: redis
+  version: "10.7.16"
+  repository: file://charts/redis-10.7.16.tgz
+- name: rabbitmq
+  version: "7.6.7"
+  repository: file://charts/rabbitmq-7.6.7.tgz
+- name: elasticsearch
+  version: "7.9.0"
+  repository: file://charts/elasticsearch-7.9.0.tgz
+  condition: elasticsearch.enabled
+- name: postgresql
+  version: "10.3.13"
+  repository: file://charts/postgresql-10.3.13.tgz
+  condition: postgresql.enabled
+#- name: adb-maintainer-operator
+#  version: "0.0.11"
+#  repository: file://charts/adb-maintainer-operator-0.0.11.tgz
+#  condition: adb-maintainer-operator.enabled

@@ -1,0 +1,24 @@
+{{- if .Values.network_policy.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: limit-ingress
+spec:
+  podSelector: {}
+  ingress:
+  - from:
+      # allow pods within the instance namespace to communicate with each others
+      - namespaceSelector:
+          matchLabels:
+            kubernetes.io/metadata.name: {{ include "adb.namespace" . }}
+{{ if .Values.ingress.enabled }}
+      # allows traefik to route requests
+      - namespaceSelector:
+          matchLabels:
+            {{- toYaml $.Values.ingress.namespace_labels | nindent 12 }}
+{{ end }}
+  policyTypes:
+  - Ingress
+{{- end }}
+

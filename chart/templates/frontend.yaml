@@ -1,0 +1,192 @@
+# Frontend deployment, REST API
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "adb.fullname" . }}-frontend
+  {{- with .Values.podAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  labels:
+    {{- include "adb.labels" . | nindent 4 }}
+    component: frontend
+  namespace: {{ include "adb.namespace" . }}
+spec:
+{{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.frontend.replicaCount }}
+{{- end }}
+  selector:
+    matchLabels:
+      {{- include "adb.selectorLabels" . | nindent 6 }}
+      component: frontend
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        {{- include "adb.selectorLabels" . | nindent 8 }}
+        component: frontend
+    spec:
+
+      {{- if .Values.serviceAccount.create }}
+      serviceAccountName: {{ include "adb.serviceAccountName" . }}
+      {{- end }}
+
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+
+      containers:
+      - env:
+        {{- include "adb.pythonpath" . | nindent 8 }}
+        - name: ARTIFACTDB_ENV
+          value: {{ .Values.env }}
+        - name: LOG_LEVEL
+          value: debug
+        - name: PLUGINS_PATH
+          value: "plugins"
+        # limit number of worker when in dev/reload mode
+        {{- if .Values.frontend.workers }}
+        - name: MAX_WORKERS
+          value: {{ .Values.frontend.workers | quote }}
+        {{- end }}
+
+        {{- if .Values.tag }}
+        image: "{{ .Values.image }}:{{ .Values.tag}}"
+        {{- else }}
+        image: "{{ .Values.image }}"
+        {{- end }}
+        imagePullPolicy: {{ .Values.imagePullPolicy }}
+
+        {{- if .Values.frontend.autoreload.enabled }}
+        command:
+          - /start-reload.sh
+        {{- end }}
+
+        name: frontend
+        ports:
+        - containerPort: {{ .Values.frontend.service.port }}
+        lifecycle:
+          preStop:
+            exec:
+              # SIGTERM triggers a quick exit; add sleep to allow graceful termination.
+              command: ["sleep","60"]
+
+        livenessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 60
+          successThreshold: 1
+          timeoutSeconds: 1
+
+        {{- if .Values.frontend.readinessProbe.enabled }}
+        readinessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /status
+            port: {{ .Values.frontend.service.port }}
+          initialDelaySeconds: 30
+          periodSeconds: 120
+          successThreshold: 1
+          timeoutSeconds: 5
+        {{- end }}
+
+        resources:
+          {{- toYaml .Values.resources | nindent 12 }}
+
+        volumeMounts:
+        - mountPath: /app/run/secrets/s3
+          name: s3-credentials
+          readOnly: true
+        - mountPath: /app/run/secrets/pg
+          name: pg-credentials
+          readOnly: true
+        - mountPath: /app/run/secrets/pubkey
+          name: pubkey-pem
+          readOnly: true
+        - mountPath: /app/run/secrets/privkey
+          name: privkey-pem
+          readOnly: true
+        - name: config-and-patches
+          mountPath: /app/etc
+          readOnly: true
+        - mountPath: /app/run/secrets/keycloak
+          name: svc-credentials
+          readOnly: true
+        {{- include "local-code-volume-mounts" . | nindent 8 }}
+        {{- if .Values.unittest.remove }}
+        - mountPath: /app/tests
+          name: empty-test-dir
+        {{- end }}
+
+
+      volumes:
+      - name: s3-credentials
+        secret:
+          secretName: s3-credentials
+          optional: true
+      - name: pg-credentials
+        secret:
+          secretName: pg-credentials
+      - name: privkey-pem
+        secret:
+          secretName: privkey-pem
+      - name: pubkey-pem
+        secret:
+          secretName: pubkey-pem
+      - name: config-and-patches
+        projected:
+          sources:
+            - configMap:
+                name: {{ include "adb.fullname" . }}-config
+            - configMap:
+                name: {{ include "adb.fullname" . }}-patches
+      - name: svc-credentials
+        secret:
+          secretName: svc-credentials
+          optional: true
+      {{- include "local-code-volumes" .  | nindent 6}}
+      {{- if .Values.unittest.remove }}
+      - name: empty-test-dir
+        emptyDir: {}
+      {{- end }}
+
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    {{- include "adb.labels" . | nindent 4 }}
+  name: {{ include "adb.fullname" . }}-frontend
+  namespace: {{ include "adb.namespace" . }}
+spec:
+  ports:
+  {{- with .Values.frontend.service }}
+  - port: {{ .port }}
+    {{- if contains "NodePort" .type }}
+    nodePort: {{ .nodePort }}
+    {{- end }}
+    protocol: TCP
+    targetPort: {{ .targetPort }}
+  type: {{ .type }}
+  {{- end }}
+  selector:
+    {{- include "adb.selectorLabels" . | nindent 4 }}
+    component: frontend
+

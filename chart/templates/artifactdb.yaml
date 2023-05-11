@@ -1,0 +1,11 @@
+{{- if ".adb-maintainer-operator.enabled" }}
+# Empty ArtifactDB manifest, just a place-holder.
+apiVersion: olympus.genomics.roche.com/v0alpha1
+kind: ArtifactDB
+metadata:
+  name: {{ include "adb.name" . }}
+  namespace: {{ include "adb.namespace" . }}
+spec:
+  active: false
+
+{{- end }}

@@ -1,0 +1,7 @@
+apiVersion: v2
+name: artifactdb-lib
+description: Library chart for ArtifactDB to support common templating tasks.
+type: library
+version: 0.0.1
+appVersion: 0.0.1
+
