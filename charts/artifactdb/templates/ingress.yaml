@@ -14,10 +14,8 @@ metadata:
 spec:
   headers:
     customRequestHeaders:
-      # TODO: -Version is used in es.switch, originally it would contain the instance ID, but
-      # we want to stay simple and use a generic name like "ADB".
-      X-ADB-Version: "{{ .Values.instance_version }}"
-      X-ADB-Prefix: {{ include "adb.api_prefix" . }}
+      X-ADB-Version: "{{ .Values.global.instance_version }}"
+      X-ADB-Prefix: "{{ include "adb.api_prefix" . }}"
 
 ---
 apiVersion: traefik.containo.us/v1alpha1
@@ -35,7 +33,16 @@ metadata:
   name: addtrailingslash
 spec:
   redirectRegex:
-    regex: {{ include "adb.api_prefix" . }}$
+    # if no prefix, strict empty path, otherwise too many redirect but if prefix, we can't have "^" or it doesn't work,
+    # no / added (note if no prefix, this basically does nothing, we could get rid of that middleware but it's
+    # referenced in ingress routes, so instead of having "if"s everywhere in the routes, we build an transparent
+    # middleware)
+    {{- $prefix := include "adb.api_prefix" . }}
+    {{- $path_regex := "^$" }}
+    {{- if ne $prefix "" }}
+    {{- $path_regex = printf "%s$" $prefix }}
+    {{- end }}
+    regex: {{ printf "%s" $path_regex }}
     replacement: {{ include "adb.api_prefix" . }}/
 
 
@@ -56,7 +63,12 @@ spec:
   entryPoints:
   - web
   routes:
-  - match: HostRegexp(`adb`,`{subdomain:[a-z0-9.-]*}{{ include "adb.api_hostname" . }}`) && PathPrefix(`{{ include "adb.api_prefix" . }}`)
+  {{- $prefix := include "adb.api_prefix" . }}
+  {{- $path_prefix := "" }}
+  {{- if ne $prefix "" }}
+  {{- $path_prefix = printf "&& PathPrefix(`%s`)" $prefix }}
+  {{- end }}
+  - match: HostRegexp(`adb`,`{subdomain:[a-z0-9.-]*}{{ include "adb.api_hostname" . }}`) {{ printf "%s" $path_prefix }}
     kind: Rule
     services:
     - name: {{ include "adb.fullname" . }}-frontend
@@ -145,6 +157,7 @@ spec:
 {{- end }}
 
 {{- if eq (include "ingress-type" .) "nginx" -}}
+{{- fail "TODO: ingress template needs to be updated to match Traefik ones" }}
 {{- if not (.Capabilities.APIVersions.Has "networking.k8s.io/v1") -}}
 {{- fail "NGINX isn't installed, can't configure ingress routes" }}
 {{- end }}
@@ -158,8 +171,8 @@ metadata:
   annotations:
     kubernetes.io/ingress.class: "nginx"
     nginx.ingress.kubernetes.io/configuration-snippet: |
-      more_set_input_headers X-{{ .Values.instance_id }}-Version: {{ .Values.instance_version }};
-      more_set_input_headers X-ADB-Prefix: {{ include "adb.api_prefix" . }};
+      more_set_input_headers X-ADB-Version: "{{ .Values.global.instance_version }}";
+      more_set_input_headers X-ADB-Prefix: "{{ include "adb.api_prefix" . }}";
 spec:
   rules:
   - host: {{ include "adb.api_hostname" . }}

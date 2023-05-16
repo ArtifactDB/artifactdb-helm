@@ -1,4 +1,8 @@
 global:
+  # -- Instance ID, lowercase, no space, 16 chars max.
+  instance_id: "artifactdb"
+  # -- Instance version, used as a path prefix in the URL.
+  instance_version: "v1"
   # -- Specify the environment. Value must match a config-{env}.yml file used as a ConfigMap content.
   env: dev
   # -- Runs in standalone mode, using minimal/vanilla base docker image (no customization, set to false if using a
@@ -12,12 +16,6 @@ global:
   src_folder: null
   # initial PYTHONPATH, to adjust to custom installation
   pythonpath: "/app:/app/lib"
-
-
-# -- Instance ID, lowercase, no space, 16 chars max.
-instance_id: "artifactdb"
-# -- Instance version, used as a path prefix in the URL.
-instance_version: "v1"
 
 
 # -- Force namespace name, otherwise taken from Helm CLI
@@ -155,13 +153,13 @@ ci: false
 
 
 # -- Specifies pod resources.
-resources:
-  limits:
-    cpu: null
-    memory: null
-  requests:
-    cpu: null
-    memory: null
+resources: {}
+#  limits:
+#    cpu: null
+#    memory: null
+#  requests:
+#    cpu: null
+#    memory: null
 
 # Not used for now.
 autoscaling:

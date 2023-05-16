@@ -90,7 +90,7 @@ spec:
           [ -f "/app/run/secrets/admins/users.txt" ] && [ -s "/app/run/secrets/admins/users.txt" ] &&
           for userpass in `cat /app/run/secrets/admins/users.txt`; do IFS=: read -r user pass <<< $userpass; adduser $user -h /home/admin -s /bin/bash -D; done;
           cat /app/run/secrets/admins/users.txt | chpasswd;
-          cd /wetty && LD_LIBRARY_PATH=. ./node . --port {{ .Values.admin.service.port }} --base {{ include "adb.api_prefix" . }}/shell --title "{{ .Values.instance_id }} admin. shell"
+          cd /wetty && LD_LIBRARY_PATH=. ./node . --port {{ .Values.admin.service.port }} --base {{ include "adb.api_prefix" . }}/shell --title "{{ .Values.global.instance_id }} admin. shell"
 
         resources:
           {{- toYaml .Values.resources | nindent 12 }}

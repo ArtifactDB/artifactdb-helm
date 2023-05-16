@@ -96,9 +96,10 @@ API path prefix
 {{/*
 API path prefix
 normalize resulting prefix so it can be used by appending/prepending "/" and avoid "//"
+This is an opinion(h)ated implementation of what a path prefix should be.
 */}}
 {{- define "adb.api_prefix" -}}
-{{- $prefix := printf "%s/%s" (default "" .Values.ingress.prefix) (default "" .Values.instance_version) }}
+{{- $prefix := printf "%s/%s" (default "" .Values.ingress.prefix) (default "" .Values.global.instance_version) }}
 {{- $prefix = trimPrefix "/" $prefix }}
 {{- $prefix = trimSuffix "/" $prefix }}
 {{- if ne "" $prefix }}
