@@ -157,7 +157,7 @@ Ingress type
 {{- $pythonpath := .Values.global.pythonpath }}
 {{- if .Values.global.standalone }}
 {{/* Point to standalone code  */}}
-{{- $pythonpath = printf "%s:%s" .Values.global.standalone.src_path $pythonpath }}
+{{- $pythonpath = printf "%s:%s" $pythonpath .Values.global.standalone.src_path }}
 {{- end }}
 {{- if .Values.mountLocalLib }}
 {{/* Expecting lib code within /app */}}
