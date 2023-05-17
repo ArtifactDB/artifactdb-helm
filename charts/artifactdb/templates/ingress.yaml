@@ -32,7 +32,7 @@ kind: Middleware
 metadata:
   name: addtrailingslash
 spec:
-  redirectRegex:
+  replacePathRegex:
     # if no prefix, strict empty path, otherwise too many redirect but if prefix, we can't have "^" or it doesn't work,
     # no / added (note if no prefix, this basically does nothing, we could get rid of that middleware but it's
     # referenced in ingress routes, so instead of having "if"s everywhere in the routes, we build an transparent
@@ -40,7 +40,7 @@ spec:
     {{- $prefix := include "adb.api_prefix" . }}
     {{- $path_regex := "^$" }}
     {{- if ne $prefix "" }}
-    {{- $path_regex = printf "%s$" $prefix }}
+    {{- $path_regex = printf "^%s$" $prefix }}
     {{- end }}
     regex: {{ printf "%s" $path_regex }}
     replacement: {{ include "adb.api_prefix" . }}/
