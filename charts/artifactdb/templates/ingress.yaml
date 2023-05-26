@@ -3,6 +3,7 @@
 # Default to Traefik
 {{- if eq (include "ingress-type" .) "traefik" -}}
 {{- if not (.Capabilities.APIVersions.Has "traefik.containo.us/v1alpha1") -}}
+{{- fail "Traefik isn't installed, can't configure ingress routes" }}
 {{- end }}
 
 # MIDDLEWARES
