@@ -34,7 +34,7 @@ spec:
 
       initContainers:
       - name: copy-wetty
-        image: wettyoss/wetty
+        image: {{ .Values.admin.wetty.image }}
         volumeMounts:
         - mountPath: /wetty
           name: shared-wetty

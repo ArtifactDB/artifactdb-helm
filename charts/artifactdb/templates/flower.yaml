@@ -44,7 +44,7 @@ spec:
         - "--port={{- .Values.backend.service.port }}"
         - --address=0.0.0.0
         - --url_prefix={{ include "adb.api_prefix" . }}/flower
-        image: mher/flower:0.9.5
+        image: {{ .Values.flower.image }}
         name: flower
         ports:
         - containerPort: {{ .Values.backend.service.port }}  # same as celery backend

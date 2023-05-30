@@ -1,6 +1,6 @@
 # artifactdb
 
-![Version: 0.0.2](https://img.shields.io/badge/Version-0.0.2-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 0.0.2](https://img.shields.io/badge/AppVersion-0.0.2-informational?style=flat-square)
+![Version: 0.0.3](https://img.shields.io/badge/Version-0.0.3-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 0.0.2](https://img.shields.io/badge/AppVersion-0.0.2-informational?style=flat-square)
 
 Chart to support generic deployment of ArtifactDB APIs
 
@@ -23,6 +23,7 @@ Chart to support generic deployment of ArtifactDB APIs
 | admin.service.port | int | `3000` |  |
 | admin.service.targetPort | int | `3000` |  |
 | admin.service.type | string | `"ClusterIP"` |  |
+| admin.wetty.image | string | `"wettyoss/wetty"` |  |
 | affinity.podAntiAffinity | object | `{"preferredDuringSchedulingIgnoredDuringExecution":[{"podAffinityTerm":{"topologyKey":"topology.kubernetes.io/zone"},"weight":100}]}` | Default pod anti-affinity rule, defaulting to deploying in multiple zones if available. |
 | autoscaling.enabled | bool | `false` |  |
 | autoscaling.maxReplicas | int | `10` |  |
@@ -33,6 +34,7 @@ Chart to support generic deployment of ArtifactDB APIs
 | backend.service.port | int | `5555` |  |
 | ci | bool | `false` | Specifies if the deployment is running within a CI pipeline. This adds a label `ci: true` in the deployments, that can indirectly be used to avoid exposing the REST API unintentionally (eg. with a combination of tolerations and k8s nodes labelling, highly depends on the k8s cluster setup though, ymmv...) |
 | elasticsearch | object | `{"clusterHealthCheckParams":"wait_for_status=yellow&timeout=1s","enabled":false,"imageTag":"7.4.0","minimumMasterNodes":1,"replicas":1}` | For local development/test purposes, deploys a single node Elasticsearch "cluster". |
+| flower.image | string | `"mher/flower:0.9.5"` |  |
 | flower.replicaCount | int | `1` | Number of replicas for Flower (UI on top of RabbitMQ). 1 is enough... |
 | flower.service.port | int | `8888` |  |
 | flower.service.targetPort | int | `5555` |  |
