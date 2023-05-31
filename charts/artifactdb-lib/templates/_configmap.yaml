@@ -25,5 +25,8 @@ data: {}
 
 {{- define "adblib.sealedsecrets" -}}
 {{- $sealed_file := printf "files/sealed-secrets-%s.yaml" .Values.global.env }}
+{{- if .Values.global.envSecrets }}
+{{- $sealed_file = printf "files/sealed-secrets-%s.yaml" .Values.global.envSecrets }}
+{{- end }}
 {{ tpl (.Files.Get $sealed_file) . }}
 {{- end -}}

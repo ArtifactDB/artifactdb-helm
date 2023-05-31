@@ -4,7 +4,9 @@ global:
   # -- Instance version, used as a path prefix in the URL.
   instance_version: "v1"
   # -- Specify the environment. Value must match a config-{env}.yml file used as a ConfigMap content.
-  env: dev
+  env: null
+  # -- Optional: specify the environment name to select sealed-secret file. If not set, `global.env` is used.
+  envSecrets: null
   # -- Runs in standalone mode, using minimal/vanilla base docker image (no customization, set to false if using a
   # custom image).
   standalone:

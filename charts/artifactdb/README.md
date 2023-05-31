@@ -1,6 +1,6 @@
 # artifactdb
 
-![Version: 0.0.3](https://img.shields.io/badge/Version-0.0.3-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 0.0.2](https://img.shields.io/badge/AppVersion-0.0.2-informational?style=flat-square)
+![Version: 0.0.4](https://img.shields.io/badge/Version-0.0.4-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 0.0.2](https://img.shields.io/badge/AppVersion-0.0.2-informational?style=flat-square)
 
 Chart to support generic deployment of ArtifactDB APIs
 
@@ -47,7 +47,8 @@ Chart to support generic deployment of ArtifactDB APIs
 | frontend.service.type | string | `"ClusterIP"` |  |
 | frontend.workers | string | `nil` | Number of gunicorn workers serving the API. `null` for unlimited where gunicorn itself sets it according to available cores. |
 | fullnameOverride | string | `""` |  |
-| global.env | string | `"dev"` | Specify the environment. Value must match a config-{env}.yml file used as a ConfigMap content. |
+| global.env | string | `nil` | Specify the environment. Value must match a config-{env}.yml file used as a ConfigMap content. |
+| global.envSecrets | string | `nil` | Optional: specify the environment name to select sealed-secret file. If not set, `global.env` is used. |
 | global.instance_id | string | `"artifactdb"` | Instance ID, lowercase, no space, 16 chars max. |
 | global.instance_version | string | `"v1"` | Instance version, used as a path prefix in the URL. |
 | global.pythonpath | string | `"/app:/app/lib"` |  |
