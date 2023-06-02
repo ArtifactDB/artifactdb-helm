@@ -1,4 +1,4 @@
-{{- if .Values.adb_maintainer_operator.enabled }}
+{{- if index .Values "adb-maintainer-operator" "enabled" }}
 {{- if .Capabilities.APIVersions.Has "olympus.genomics.roche.com/v0alpha1" -}}
 # Empty ArtifactDB manifest, just a place-holder.
 apiVersion: olympus.genomics.roche.com/v0alpha1

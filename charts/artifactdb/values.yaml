@@ -235,7 +235,7 @@ postgresql:
   existingSecret: pg-credentials
   fullnameOverride: postgresql
 
-adb_maintainer_operator:
+adb-maintainer-operator:
   # -- Experimental: deploys an Olympus Maintainer Operator, which takes care of model generation from schema updates,
   # mapping upgrades, and reindexing.
   enabled: false

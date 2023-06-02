@@ -1,6 +1,6 @@
 # artifactdb
 
-![Version: 0.0.4](https://img.shields.io/badge/Version-0.0.4-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 0.0.2](https://img.shields.io/badge/AppVersion-0.0.2-informational?style=flat-square)
+![Version: 0.0.5](https://img.shields.io/badge/Version-0.0.5-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 0.0.2](https://img.shields.io/badge/AppVersion-0.0.2-informational?style=flat-square)
 
 Chart to support generic deployment of ArtifactDB APIs
 
@@ -17,7 +17,7 @@ Chart to support generic deployment of ArtifactDB APIs
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| adb_maintainer_operator.enabled | bool | `false` | Experimental: deploys an Olympus Maintainer Operator, which takes care of model generation from schema updates, mapping upgrades, and reindexing. |
+| adb-maintainer-operator.enabled | bool | `false` | Experimental: deploys an Olympus Maintainer Operator, which takes care of model generation from schema updates, mapping upgrades, and reindexing. |
 | admin.enabled | bool | `true` | Deploy an "admin" pod allowing to expose access to a Pod's terminal through a web browser. |
 | admin.replicaCount | int | `0` | Unless specificaly requested, no admin pod deployed for security reasons, to avoid unnecessary exposure. |
 | admin.service.port | int | `3000` |  |
