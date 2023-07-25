@@ -53,7 +53,7 @@ spec:
         - "/bin/bash"
         - "-c"
         args:
-        - for i in {1..100}; do sleep 1; if curl -s {{ include "adb.fullname" . }}-frontend:8000; then exit 0; fi; done; exit 1
+        - if curl -v --retry-all-errors --max-time 5 --retry 100 --retry-delay 0 {{ include "adb.fullname" . }}-frontend:8000; then exit 0; else exit 1; fi
       containers:
       - name: test
         image: "{{ .Values.image }}:{{ .Values.tag}}"
