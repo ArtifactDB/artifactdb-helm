@@ -134,10 +134,6 @@ podAnnotations:
 
 ingress:
   enabled: false
-  # -- Matching labels to identify which namespace Traefik/NGINX is deployed this is used in a network policy to allow
-  # ingress between the ingress controller and this instance default is the k8s label containing namespace name metadata
-  namespace_labels:
-    kubernetes.io/metadata.name: ingress
   # -- Specify the hostname for ingress route rules. Working in combination with `prefix`, see below.
   hostname: null
   # -- Specify the path prefix for ingress route rules. If `instance_version` is specified, it is appended to the path
@@ -156,8 +152,10 @@ ingress:
 
 
 network_policy:
-  # -- An
   enabled: true
+  # -- If using an ingress controller, traffic needs to be allowed between the namespace where the controller is
+  # deployed, and the namespace where ArtifactDB instance is deployed. Ignored and not set by default.
+  ingress_namespace: null
 
 # -- Specifies if the deployment is running within a CI pipeline. This adds a label `ci: true` in the deployments, that
 # can indirectly be used to avoid exposing the REST API unintentionally (eg. with a combination of tolerations and k8s

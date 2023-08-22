@@ -12,12 +12,12 @@ spec:
       - namespaceSelector:
           matchLabels:
             kubernetes.io/metadata.name: {{ include "adb.namespace" . }}
-{{ if .Values.ingress.enabled }}
-      # allows traefik to route requests
+      {{ if .Values.network_policy.ingress_namespace }}
+      # allows ingress controller to route requests
       - namespaceSelector:
           matchLabels:
-            {{- toYaml $.Values.ingress.namespace_labels | nindent 12 }}
-{{ end }}
+            kubernetes.io/metadata.name: {{ .Values.network_policy.ingress_namespace }}
+      {{ end }}
   policyTypes:
   - Ingress
 {{- end }}
