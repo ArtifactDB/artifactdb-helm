@@ -1,3 +1,4 @@
+{{- if .Values.backend.enabled }}
 # Backend deployment, Celery based, uses the same Docker image (different entry-point)
 apiVersion: apps/v1
 kind: Deployment
@@ -269,3 +270,5 @@ spec:
       - name: empty-test-dir
         emptyDir: {}
       {{- end }}
+
+{{- end }}

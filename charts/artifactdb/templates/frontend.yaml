@@ -1,3 +1,4 @@
+{{- if .Values.frontend.enabled }}
 # Frontend deployment, REST API
 apiVersion: apps/v1
 kind: Deployment
@@ -47,6 +48,58 @@ spec:
       tolerations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+
+      initContainers:
+      # pull-git-repositories container pull git repos once
+      # and avoid concurency when pulling git repos by many workers.
+      - name: pull-git-repositories
+
+        {{- if .Values.tag }}
+        image: "{{ .Values.image }}:{{ .Values.tag}}"
+        {{- else }}
+        image: "{{ .Values.image }}"
+        {{- end }}
+
+        command:
+        - "/bin/bash"
+        - "-c"
+        args:
+        - python -m artifactdb.tools.pull_plugin_repos
+
+        volumeMounts:
+        - mountPath: /app/run/secrets/s3
+          name: s3-credentials
+          readOnly: true
+        - mountPath: /app/run/secrets/pg
+          name: pg-credentials
+          readOnly: true
+        - mountPath: /app/run/secrets/pubkey
+          name: pubkey-pem
+          readOnly: true
+        - mountPath: /app/run/secrets/privkey
+          name: privkey-pem
+          readOnly: true
+        - name: config-and-patches
+          mountPath: /app/etc
+          readOnly: true
+        - mountPath: /app/run/secrets/keycloak
+          name: svc-credentials
+          readOnly: true
+        # mountPath dependent on PLUGINS_PATH:
+        - mountPath: /app/plugins
+          name: plugins-dir
+        {{- include "local-code-volume-mounts" . | nindent 8 }}
+
+        env:
+        - name: ARTIFACTDB_ENV
+          value: {{ .Values.global.env }}
+        - name: LOG_LEVEL
+          value: debug
+        - name: PYTHONPATH
+          value: "/app/lib/gpapy:/app/lib/artifactdb-utils/src:/app/lib/artifactdb-identifiers/src:/app/lib/artifactdb-backend/src:/app"
+        - name: PLUGINS_PATH
+          value: "plugins"
+
 
       containers:
       - env:
@@ -128,6 +181,9 @@ spec:
         - mountPath: /app/run/secrets/keycloak
           name: svc-credentials
           readOnly: true
+        # mountPath dependent on PLUGINS_PATH:
+        - mountPath: /app/plugins
+          name: plugins-dir
         {{- include "local-code-volume-mounts" . | nindent 8 }}
         {{- if .Values.unittest.remove }}
         - mountPath: /app/tests
@@ -165,8 +221,13 @@ spec:
       - name: empty-test-dir
         emptyDir: {}
       {{- end }}
+      - name: plugins-dir
+        emptyDir: {}
+
+{{- end }}
 
 
+{{- if .Values.frontend.service.enabled }}
 ---
 apiVersion: v1
 kind: Service
@@ -190,3 +251,4 @@ spec:
     {{- include "adb.selectorLabels" . | nindent 4 }}
     component: frontend
 
+{{- end }}

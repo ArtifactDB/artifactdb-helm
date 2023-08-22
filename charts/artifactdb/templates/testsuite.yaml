@@ -72,11 +72,7 @@ spec:
         - "/bin/bash"
         - "-c"
         args:
-        {{- if .Values.unittest.verbose }}
-        - "pytest -s -vvvv tests"
-        {{- else }}
-        - "pytest tests"
-        {{- end }}
+        - "{{ .Values.unittest.args }}"
 
         volumeMounts:
         - mountPath: /app/run/secrets/s3

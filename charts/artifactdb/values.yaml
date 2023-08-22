@@ -37,9 +37,13 @@ mountLocalCode: false
 mountLocalLib: false
 
 frontend:
+  # -- Install a Deployment for frontend pods. Disable to override the main chart with a custom deployment.
+  enabled: true
   # -- Number of replicas for frontend pods serving REST API.
   replicaCount: 2
   service:
+    # -- Install an service (disable to override the servive definition in the main chart)
+    enabled: true
     #type: NodePort
     #nodePort: 30800
     type: ClusterIP
@@ -55,6 +59,8 @@ frontend:
   workers: null
 
 backend:
+  # -- Install a Deployment for backeend pods (celery workers + beat). Disable to override the main chart with a custom deployment.
+  enabled: true
   # -- Number of replicas for backend pods performing async tasks, such as indexing.
   replicaCount: 2
   service:
@@ -76,10 +82,10 @@ flower:
 unittest:
   # -- Deploy a `testsuite` pod used to run unit tests.
   enabled: false
+  # -- pytest command line
+  args: "pytest tests"
   # -- Automatically runs the test suite as a Kubernetes Job. If false, spin up a Pod that can be used interactively.
   autorun: false
-  # -- Enable verbose output from running test suite.
-  verbose: false
   # -- Remove test suite code, which can be destructive and be dangerous to keep in a non-dev environment.
   remove: true
   base_url: null
