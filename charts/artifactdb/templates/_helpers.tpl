@@ -114,8 +114,8 @@ Ingress type
 {{/* Local/dev mode, mounting code from host (volumes)
 */}}
 {{- define "local-code-volumes" -}}
-{{- if .Values.global.src_folder }}
 {{- if .Values.mountLocalCode }}
+{{- $_ := required "volumes: global.src_folder must be set to mount code from host" .Values.global.src_folder}}
 - name: src-code
   hostPath:
     path: "/code/{{ .Values.global.src_folder }}"
@@ -125,17 +125,14 @@ Ingress type
   hostPath:
     path: "/code/lib"
 {{- end }}
-{{- else }}
-{{- fail "global.src_folder must be set to mount code from host" }}
-{{- end }} 
 {{- end }}
 
 
 {{/* Local/dev mode, mounting code from host (volume mounts)
 */}}
 {{- define "local-code-volume-mounts" -}}
-{{- if .Values.global.src_folder }}
 {{- if .Values.mountLocalCode }}
+{{- $_ := required "volumeMounts: global.src_folder must be set to mount code from host" .Values.global.src_folder}}
 - mountPath: /app
   name: src-code
 {{- end }}
@@ -143,9 +140,6 @@ Ingress type
 - mountPath: /app/lib
   name: src-lib
 {{- end }}
-{{- else }}
-{{- fail "global.src_folder must be set to mount code from host" }}
-{{- end }} 
 {{- end }}
 
 {{/* Set PYTHONPATH depending on environment */}}
