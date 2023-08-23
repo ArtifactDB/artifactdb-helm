@@ -2,7 +2,7 @@ apiVersion: v2
 name: artifactdb
 description: Chart to support generic deployment of ArtifactDB APIs
 type: application
-version: 0.0.6
+version: 0.0.8
 appVersion: 0.0.2
 
 dependencies:

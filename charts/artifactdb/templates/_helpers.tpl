@@ -2,7 +2,12 @@
 Expand the name of the chart.
 */}}
 {{- define "adb.name" -}}
-{{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" }}
+{{/* Can't use traditional chart name here as it would use "artifactdb" */}}
+{{- if .Values.nameOverride }}
+{{- .Values.nameOverride | trunc 63 | trimSuffix "-" }}
+{{- else }}
+{{- .Values.global.instance_id }}-{{ .Values.global.env }}
+{{- end }}
 {{- end }}
 
 {{/*
@@ -43,7 +48,7 @@ Selector labels
 */}}
 {{- define "adb.selectorLabels" -}}
 app.kubernetes.io/name: {{ include "adb.name" . }}
-app.kubernetes.io/instance: {{ .Release.Name }}
+app.kubernetes.io/instance: {{ .Values.global.instance_id }}
 {{- end }}
 
 {{/*
@@ -74,7 +79,7 @@ If release name contains chart name it will be used as a full name.
 VersionString generation
 */}}
 {{- define "adb.version" -}}
-{{- .Chart.AppVersion }}-{{- .Values.env }}-{{- .Values.Version }}
+{{- .Chart.AppVersion }}-{{- .Values.global.env }}-{{- .Values.Version }}
 {{- end }}
 
 {{/*
